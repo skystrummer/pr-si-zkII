@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>akt II – hs 26</title>
+
+<style>
+/* =========================================================
+   SO FUNKTIONIERT DAS LAYOUT
+   ---------------------------------------------------------
+   Die Seite ist wie das InDesign-Dokument 1920 "Pixel" breit.
+   1 Design-Pixel = var(--u)  → passt sich jeder Bildschirmbreite an.
+
+   Jedes Element bekommt im HTML seine Werte aus InDesign:
+     --x  = Abstand von links   (Design-Pixel)
+     --y  = Abstand von oben    (Design-Pixel)
+     --b  = Breite              (Design-Pixel)
+   Die Höhe der Bilder ergibt sich automatisch aus der Bilddatei.
+   → Bild im Ordner "links" mit gleichem Namen überschreiben, fertig.
+   ========================================================= */
+
+/* Schriftart aus dem Ordner "links" */
+@font-face {
+  font-family: "Helvetica Now";
+  src: url("links/helvetica-now-display-x-black.otf");
+}
+
+:root {
+  --basis: calc(100vw / 1920);          /* 1 Design-Pixel ohne Zoom */
+  --zoom: 1;                            /* wird per Script geändert (Ctrl + Mausrad / Ctrl +/-/0) */
+  --u: calc(var(--basis) * var(--zoom)); /* 1 Design-Pixel mit Zoom – für die Präsentation */
+  --rand: calc((100vw - 1920 * var(--u)) / 2);  /* hält die Präsentation beim Zoomen mittig */
+}
+
+/* Ganze Seite: schwarz, nur vertikal scrollen, einrasten auf Bilder */
+html {
+  background: #000;
+  scroll-snap-type: y mandatory;   /* Scroll Snapping */
+  overflow-x: hidden;              /* nie seitlich verschieben */
+  scrollbar-width: none;           /* Scrollbalken ausblenden (Firefox) */
+}
+html::-webkit-scrollbar { display: none; }  /* Scrollbalken ausblenden (Chrome/Edge/Safari) */
+
+body {
+  margin: 0;
+  color: #fff;
+  font-family: "Helvetica Now", Arial, sans-serif;
+  font-size: calc(16 * var(--u));
+  line-height: calc(24 * var(--u));
+}
+
+/* Die "Leinwand" – so hoch wie die Präsentation (endet beim letzten Bild) */
+.leinwand {
+  position: relative;
+  width: 100vw;
+  height: calc(14600 * var(--u));
+  overflow: clip;   /* abschneiden, aber KEIN eigener Scrollbereich (sonst geht das Einrasten nicht) */
+}
+
+/* Alles auf der Leinwand wird mit --x / --y platziert */
+.bild, .video-rahmen, .text, .label {
+  position: absolute;
+  left: calc(var(--rand) + var(--x) * var(--u));
+  top:  calc(var(--y) * var(--u));
+}
+
+/* BILDER: hier rastet das Scrollen ein (Bild mittig im Fenster) */
+.bild {
+  display: block;
+  width: calc(var(--b) * var(--u));
+  height: auto;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;   /* immer nur ein Bild weiter */
+}
+
+/* Bilder, die über einem anderen Bild liegen sollen */
+.oben { z-index: 2; }
+
+/* TEXTE (rasten nicht ein) */
+.text {
+  z-index: 3;
+  width: calc(var(--b) * var(--u));
+  white-space: nowrap;   /* Zeilenumbrüche wie in InDesign, mit <br> */
+}
+.rechts { text-align: right; }
+.mitte  { text-align: center; }
+
+/* Raumbezeichnungen im Grundriss */
+.label { z-index: 3; }
+
+/* Senkrechte Bildunterschriften am rechten Rand (von unten nach oben lesbar).
+   Bleiben beim Zoomen am Rand und gleich gross; --y = Unterkante (bündig mit dem Bild) */
+.beschriftung {
+  position: absolute;
+  left: calc(1881 * var(--basis));
+  top:  calc(var(--y) * var(--u));
+  transform: translateY(-100%) rotate(180deg);
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+  font-size: calc(16 * var(--basis));
+  line-height: calc(24 * var(--basis));
+}
+
+/* Senkrechte Namensleiste links – läuft mit (wird unten per Script über die ganze Höhe wiederholt) */
+.namen {
+  position: absolute;
+  z-index: 10;
+  top: calc(100 * var(--basis));
+  left: calc(19 * var(--basis));
+  display: flex;
+  flex-direction: column;
+  gap: calc(120 * var(--basis));
+  font-size: calc(16 * var(--basis));     /* bleibt beim Zoomen gleich gross */
+  line-height: calc(24 * var(--basis));
+}
+.namen span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+
+/* Textfarben */
+.rot     { color: #e05f47; }
+.blau    { color: #3e5aa8; }
+.knallrot{ color: #ff0000; }
+.gruen   { color: #527353; }
+.violett { color: #807dac; }
+.label.rot  { color: #dd5f47; }
+.label.blau { color: #2951cc; }
+
+/* VIDEOS: Rahmen mit Regler
+   Klick aufs Video = anhalten / weiter, Maus drüber = Regler erscheint */
+.video-rahmen {
+  z-index: 2;
+  width: calc(var(--b) * var(--u));
+  overflow: clip;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  cursor: pointer;
+}
+.video-rahmen video {
+  display: block;
+  width: 100%;
+}
+
+/* nur "heating overshoot": Ausschnitt, damit der schwarze Rand des Videos wegfällt */
+.ausschnitt { height: calc(var(--h) * var(--u)); }
+.ausschnitt video {
+  position: absolute;
+  left:  calc(-82 * var(--u));
+  top:   calc(-82 * var(--u));
+  width: calc(1018 * var(--u));
+}
+
+/* Regler: dezent grau und halbtransparent */
+.regler {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  left: 3%; bottom: 3%;
+  width: 94%;
+  height: calc(14 * var(--basis));
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;                         /* unsichtbar ... */
+  transition: opacity 0.3s;
+}
+.video-rahmen:hover .regler { opacity: 0.5; }   /* ... ausser die Maus ist drüber */
+.regler:hover { opacity: 0.8 !important; }
+
+.regler::-webkit-slider-runnable-track { height: 2px; background: #999; }
+.regler::-moz-range-track             { height: 2px; background: #999; }
+.regler::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: calc(10 * var(--basis)); height: calc(10 * var(--basis));
+  margin-top: calc(-4 * var(--basis));
+  border-radius: 50%; background: #bbb; border: none;
+}
+.regler::-moz-range-thumb {
+  width: calc(10 * var(--basis)); height: calc(10 * var(--basis));
+  border-radius: 50%; background: #bbb; border: none;
+}
+</style>
+</head>
+
+<body>
+
+
+
+<div class="leinwand">
+
+  <!-- Namensleiste links (wird per Script die ganze Seite hinunter wiederholt) -->
+  <div class="namen" id="namen"></div>
+
+
+  <!-- ================= 1  GRAZ – REFERENZ ================= -->
+  <img class="bild" src="links/Graz_Foto_1.jpg" style="--x:200; --y:36; --b:685">
+  <div class="beschriftung" style="--x:1881; --y:1075">volker giencke - gewächshäuser botanischer garten, graz</div>
+
+  <div class="text rechts" style="--x:1224; --y:847; --b:500">
+    Eine parabelförmige Tragstruktur aus Stahlrohren<br>
+    macht den Botanischen Garten in Graz einzigartig und<br>
+    geben ihm seine technisierte Ästhetik. Schwebende<br>
+    Wege führen durch den Garten und Räume sind durch<br>
+    transluzente Folien voneinander getrennt.
+  </div>
+
+  <img class="bild oben" src="links/10BotanischerGarten.jpg" style="--x:815; --y:1002; --b:905">
+
+  <div class="text" style="--x:202; --y:1459; --b:500">
+    An den Schnittstellen zweier Hallen entstehen<br>
+    unerwartete Momente. Gespannte Tücher verbinden<br>
+    die Innenräume wo die Parabelbögen es nicht tun können.
+  </div>
+
+  <img class="bild oben" src="links/Graz_Foto_2.jpg" style="--x:200; --y:1557; --b:718">
+
+  <div class="text rechts" style="--x:1224; --y:1915; --b:500">
+    Im Grundriss fällt die fast schon willkürlich wirkende<br>
+    Zusammenstellung der einzelnen Parabelbögen auf. Jede<br>
+    Halle steht schief zu der anderen und steigt in der Höhe an<br>
+    oder senkt sich sogar bis in den Boden.
+  </div>
+
+  <img class="bild" src="links/01BotanischerGarten - schwarz.jpg" style="--x:450; --y:2065; --b:1270">
+  <div class="beschriftung" style="--x:1881; --y:2912">volker giencke - gewächshäuser botanischer garten, graz</div>
+
+
+  <!-- ================= 2  KONZEPT ================= -->
+  <img class="bild" src="links/SCAN-Collage.png" style="--x:91; --y:3154; --b:1738">
+  <div class="beschriftung" style="--x:1881; --y:4158">konzeptdarstellung collage</div>
+
+
+  <!-- ================= 3  STÄDTEBAU ================= -->
+  <div class="text rechts" style="--x:1224; --y:4399; --b:500">
+    Auf dem Bauplatz sollen laute sowie leise Aktivitäten ihren<br>
+    Platz finden. Leider schliessen sich diese Dinge<br>
+    aber gegenseitig diametral aus. Aus diesem Grund werden sie<br>
+    im Städtebau voneinander getrennt. Zusätzlich werden Bezüge<br>
+    zu den benachbarten Quartieren hergestellt.
+  </div>
+
+  <img class="bild oben" src="links/Situationanalyse.png" style="--x:200; --y:4394; --b:548">
+  <div class="beschriftung" style="--x:1881; --y:5167">analyse umgebung bauplatz</div>
+
+  <img class="bild" src="links/SCAN-Skizze.png" style="--x:588; --y:4971; --b:744">
+  <div class="beschriftung" style="--x:1881; --y:6014">skizze städtebau</div>
+
+  <img class="bild oben" src="links/laut-leise-grundriss.png" style="--x:1083; --y:5932; --b:497">
+  <div class="beschriftung" style="--x:1881; --y:6468">skizze gebäude als puffer</div>
+
+  <div class="text" style="--x:202; --y:6175; --b:500">
+    Der Gebäudekomplex soll unterschiedlich und zu<br>
+    verschiedenen Tageszeiten genutzt werden. <span class="gruen">Frei zugängliche</span><br>
+    Bereiche stehen den Menschen aus dem Quartier während<br>
+    den Öffnungszeiten frei zur Verfügung, während der Einlass<br>
+    ins Hallenbad <span class="violett">zutrittsbeschränkt</span> bleibt.
+  </div>
+
+  <img class="bild" src="links/privat-öffentlich.png" style="--x:199; --y:6337; --b:497">
+  <div class="beschriftung" style="--x:1881; --y:6912">skizze zugänglichkeit</div>
+
+  <img class="bild" src="links/Umgebung1000.png" style="--x:982; --y:6454; --b:738">
+  <div class="beschriftung" style="--x:1881; --y:7496">nutzungen und umgebung</div>
+
+  <div class="text" style="--x:202; --y:7327; --b:720">
+    Für die beiden Hauptnutzungen hat das Gebäude zwei separate Eingänge.<br>
+    Die Garderoben sowie Technik und Betriebsräume befinden sich in der am meisten zum<br>
+    Platz zugewandten Halle. Die Nordosthalle bringt einen Sprungturm, Lehrschwimmbecken<br>
+    sowie ein von aussen zugängliches „Badi-Beizli“ unter. Das Sportbecken durchsticht beide<br>
+    Hallen und spannt eine Membran über sich auf. Die West-Ost-Halle eignet sich für<br>
+    Spassschwimmer*innen und Kinder. Ihre Platzfassade wird mit einem Bistro bespielt. Der<br>
+    Botanische Garten befindet sich in der Südwesthalle.
+  </div>
+
+
+  <!-- ================= 4  GRUNDRISS EG ================= -->
+  <!-- data-gruppe="grundriss": EG und OG werden gemeinsam angehalten und gespult -->
+  <div class="video-rahmen" data-gruppe="grundriss" style="--x:38; --y:7580; --b:1882">
+    <video id="video-eg" src="links/Personenfluss_EG.mp4" loop muted playsinline preload="auto"></video>
+    <input class="regler" type="range" min="0" max="1000" value="0">
+  </div>
+  <div class="beschriftung" style="--x:1881; --y:8623">grundriss eg mit wegleitung</div>
+
+  <div class="text mitte" style="--x:785; --y:8455; --b:400">
+    Der Botanische Garten sowie das Bistro und die<br>
+    Tribünen sind frei mit <span class="rot">Strassenschuhen</span><br>
+    zugänglich.<br>
+    <br>
+    Besuchende werden durch die Garderoben in die<br>
+    <span class="blau">Barfusszonen</span> geleitet, welche das Bad über<br>
+    hängende Wege im Obergeschoss erschliessen.
+  </div>
+
+
+  <!-- ================= 5  GRUNDRISS OG ================= -->
+  <div class="video-rahmen" data-gruppe="grundriss" style="--x:38; --y:8752; --b:1882">
+    <video id="video-og" src="links/Personenfluss_OG.mp4" loop muted playsinline preload="auto"></video>
+    <input class="regler" type="range" min="0" max="1000" value="0">
+  </div>
+  <div class="beschriftung" style="--x:1881; --y:9798">grundriss og mit wegleitung</div>
+
+
+  <!-- ================= 6  SCHNITT ================= -->
+  <div class="text mitte" style="--x:363; --y:10015; --b:1200">
+    Der Wasserkreislauf bildet eine Symbiose zwischen Botanischem Garten und Schwimmbad. <span class="rot">abgebadetes Wasser</span> wird zur Bewässerung des<br>
+    Gartens geleitet, welcher das Wasser filtert und als <span class="blau">gereinigtes Wasser</span> wieder zurück in das Becken gespeist werden kann.
+  </div>
+
+  <img class="bild" src="links/Schnitt.png" style="--x:200; --y:10110; --b:1520">
+  <div class="text rot" style="--x:702; --y:10495; --b:200">Wasserkreislauf</div>
+  <div class="beschriftung" style="--x:1881; --y:10523">schnitt mit wasserkreislauf</div>
+
+
+  <!-- ================= 7  GLASHAUS / HAUSTECHNIK ================= -->
+  <img class="bild" src="links/Verschattung.jpg" style="--x:719; --y:10691; --b:481">
+  <div class="beschriftung" style="--x:1881; --y:11270">modellbild verschattung</div>
+
+  <div class="text" style="--x:1236; --y:10685; --b:480">
+    Die runden Öffnungen der Verschattungsvorrichtungen<br>
+    lassen auch bei geschlossenem Zustand noch ein bisschen<br>
+    Licht hinein.
+  </div>
+
+  <div class="text" style="--x:202; --y:10987; --b:460">
+    Je höher der Glasanteil eines Schwimmbades ist, desto<br>
+    mehr <span class="knallrot">Heizenergie</span> benötigt es, da es weniger gedämmt<br>
+    werden kann. Die hohen U-Werte der Glasflächen ziehen<br>
+    zusätzlich mit sich, dass sich an der Glasinnenseite<br>
+    schneller Tauwasser bildet. Jedoch erzielt es mehr<br>
+    solare Erträge, welche den zusätzlichen<br>
+    Heizenergiebedarf übers Jahr decken könnten.
+  </div>
+
+  <!-- Video in Dauerschleife -->
+  <div class="video-rahmen ausschnitt" style="--x:205; --y:11189; --b:855; --h:408">
+    <video src="links/heating-overshoot.mp4" loop muted playsinline></video>
+    <input class="regler" type="range" min="0" max="1000" value="0">
+  </div>
+  <div class="beschriftung" style="--x:1881; --y:11556">schema auswirkungen glashaus</div>
+
+  <img class="bild" src="links/Haustechnik.png" style="--x:979; --y:11437; --b:746">
+  <div class="beschriftung" style="--x:1881; --y:12487">skizze haustechnische anlagen</div>
+
+  <div class="text" style="--x:202; --y:12271; --b:560">
+    Die Stahlrohre sind Tragstruktur und Haustechnik zugleich, das innere<br>
+    Rohr führt die <span class="blau">Wasserleitungen</span> und das äussere die <span class="rot">Lüftung</span>. Die<br>
+    Lüftungsauslässe müssen möglichst nah an den Glasflächen platziert<br>
+    sein, um Tauwasserbildung zu vermeiden.
+  </div>
+
+  <img class="bild" src="links/Aussenraumbild_klein.png" style="--x:624; --y:12406; --b:672">
+  <div class="beschriftung" style="--x:1881; --y:13412">modellbild aussen</div>
+
+  <img class="bild" src="links/Innenraumbild_klein.png" style="--x:624; --y:13486; --b:672">
+  <div class="beschriftung" style="--x:1881; --y:14492">modellbild innen</div>
+
+</div>
+
+
+<script>
+/* ---------------------------------------------------------
+   0) NAMENSLEISTE: Namen über die ganze Seite wiederholen
+   --------------------------------------------------------- */
+const namen = ['ndey iris sillah', 'lukas melchior zimmer', 'julia eberwein', 'akt II', 'hs 26'];
+const leiste = document.getElementById('namen');
+for (let i = 0; i < 40; i++) {          // oft genug wiederholen (überzähliges wird abgeschnitten)
+  namen.forEach(n => {
+    const span = document.createElement('span');
+    span.textContent = n;
+    leiste.appendChild(span);
+  });
+}
+
+/* ---------------------------------------------------------
+   1) TASTATUR: Pfeiltasten, Bild auf/ab, Leertaste, Pos1/Ende
+      springen von Bild zu Bild (funktioniert auch mit Presenter)
+   --------------------------------------------------------- */
+const stationen = [...document.querySelectorAll('.bild, .video-rahmen')]
+  .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+
+function mitteVon(el) {
+  const r = el.getBoundingClientRect();
+  return r.top + window.scrollY + r.height / 2;
+}
+
+function geheZu(el) {
+  window.scrollTo({ top: mitteVon(el) - window.innerHeight / 2, behavior: 'smooth' });
+}
+
+/* EINSTELLUNGEN fürs Scrollen */
+const SCHWELLE = 250;   // wie viel zusätzliches Scrollen = ein weiteres Bild (kleiner = springt schneller)
+const PAUSE    = 200;   // ms ohne Scrollen = Scrollbewegung ist zu Ende
+
+let zielIndex = 0;      // Bild, zu dem gerade gescrollt wird
+let letzterSprung = 0;
+
+// Welches Bild steht gerade am nächsten zur Bildschirmmitte?
+function aktuellerIndex() {
+  // Während noch zu einem Ziel gescrollt wird, von diesem Ziel aus weiterzählen
+  if (Date.now() - letzterSprung < 800) return zielIndex;
+  const jetzt = window.scrollY + window.innerHeight / 2;
+  let best = 0;
+  stationen.forEach((el, i) => {
+    if (Math.abs(mitteVon(el) - jetzt) < Math.abs(mitteVon(stationen[best]) - jetzt)) best = i;
+  });
+  return best;
+}
+
+// Um "anzahl" Bilder weiter (+) oder zurück (−)
+function schritt(anzahl) {
+  zielIndex = Math.max(0, Math.min(stationen.length - 1, aktuellerIndex() + anzahl));
+  letzterSprung = Date.now();
+  geheZu(stationen[zielIndex]);
+}
+
+/* ---------------------------------------------------------
+   ZOOM (für Ausnahmefälle)
+     Ctrl + Mausrad / Trackpad-Zwei-Finger-Zoom   → stufenlos
+     Ctrl + Plus / Ctrl + Minus                   → in Stufen
+     Ctrl + 0                                     → zurück auf 100 %
+   Nur die Präsentation wird grösser/kleiner, die Texte am Rand bleiben.
+   --------------------------------------------------------- */
+let zoom = 1;
+
+function setzeZoom(neu) {
+  neu = Math.max(0.3, Math.min(3, neu));               // Grenzen: 30 % bis 300 %
+  const mitte = (window.scrollY + window.innerHeight / 2) / zoom;   // Bildschirmmitte merken
+  zoom = neu;
+  document.documentElement.style.setProperty('--zoom', zoom);
+  document.documentElement.style.scrollSnapType = (zoom === 1) ? '' : 'none';  // beim Zoomen frei scrollen
+  window.scrollTo({ top: mitte * zoom - window.innerHeight / 2, behavior: 'instant' });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  if (e.key === '+' || e.key === '=') { setzeZoom(zoom * 1.25); e.preventDefault(); }
+  if (e.key === '-')                  { setzeZoom(zoom / 1.25); e.preventDefault(); }
+  if (e.key === '0')                  { setzeZoom(1);           e.preventDefault(); }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey) return;   // Ctrl-Tasten sind fürs Zoomen
+  if (['ArrowDown', 'ArrowRight', 'PageDown', ' '].includes(e.key)) schritt(+1);
+  else if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(e.key))    schritt(-1);
+  else if (e.key === 'Home') schritt(-999);
+  else if (e.key === 'End')  schritt(+999);
+  else return;
+  e.preventDefault();
+});
+
+/* MAUSRAD / TRACKPAD
+   - Langsam scrollen:  jede Scrollbewegung = genau ein Bild weiter
+   - Schnell scrollen:  pro weitere SCHWELLE an Scrollweg ein Bild mehr */
+let inBewegung = false;
+let richtungJetzt = 0;
+let summe = 0;
+let ruheTimer;
+
+window.addEventListener('wheel', (e) => {
+  e.preventDefault();
+
+  // Ctrl + Mausrad (oder Zwei-Finger-Zoom auf dem Trackpad) = Zoomen
+  if (e.ctrlKey) {
+    setzeZoom(zoom * Math.exp(-e.deltaY * 0.002));
+    return;
+  }
+
+  // Gezoomt: ganz normal frei scrollen
+  if (zoom !== 1) {
+    window.scrollBy(0, e.deltaY * (e.deltaMode === 1 ? 33 : 1));
+    return;
+  }
+  let delta = e.deltaY * (e.deltaMode === 1 ? 33 : 1);   // Firefox zählt in Zeilen
+  if (Math.abs(delta) < 4) return;                       // winzige Bewegungen ignorieren
+  const richtung = delta > 0 ? 1 : -1;
+
+  clearTimeout(ruheTimer);
+  ruheTimer = setTimeout(() => { inBewegung = false; }, PAUSE);
+
+  if (!inBewegung || richtung !== richtungJetzt) {
+    // Beginn einer neuen Scrollbewegung → sofort ein Bild weiter
+    inBewegung = true;
+    richtungJetzt = richtung;
+    summe = 0;
+    schritt(richtung);
+  } else {
+    // Scrollbewegung geht weiter → bei genug Weg noch ein Bild weiter
+    summe += Math.abs(delta);
+    while (summe >= SCHWELLE) {
+      summe -= SCHWELLE;
+      schritt(richtung);
+    }
+  }
+}, { passive: false });
+
+/* ---------------------------------------------------------
+   2) VIDEOS
+      Klick aufs Video     → anhalten / weiterlaufen
+      Regler (Maus drüber) → spulen
+      Videos mit gleicher data-gruppe (EG + OG) machen alles gemeinsam
+   --------------------------------------------------------- */
+document.querySelectorAll('.video-rahmen').forEach(rahmen => {
+  const video  = rahmen.querySelector('video');
+  const regler = rahmen.querySelector('.regler');
+  const gruppe = rahmen.dataset.gruppe;
+
+  // alle Rahmen, die zusammengehören (oder nur dieser eine)
+  const alleRahmen = () => gruppe
+    ? [...document.querySelectorAll(`.video-rahmen[data-gruppe="${gruppe}"]`)]
+    : [rahmen];
+
+  // Klick aufs Video: anhalten oder weiterlaufen
+  video.addEventListener('click', () => {
+    const anhalten = !video.paused;
+    alleRahmen().forEach(r => {
+      const v = r.querySelector('video');
+      if (anhalten) v.pause(); else v.play();
+      r.classList.toggle('pausiert', anhalten);
+    });
+  });
+
+  // Regler folgt dem Video
+  video.addEventListener('timeupdate', () => {
+    if (video.duration) regler.value = video.currentTime / video.duration * 1000;
+  });
+
+  // Regler verschieben = spulen
+  regler.addEventListener('input', () => {
+    alleRahmen().forEach(r => {
+      const v = r.querySelector('video');
+      v.currentTime = regler.value / 1000 * v.duration;
+    });
+  });
+});
+
+/* ---------------------------------------------------------
+   3) ALLE VIDEOS LAUFEN LASSEN + EG/OG SYNCHRON HALTEN
+      Alle 0.5 s: jedes Video, das nicht angehalten wurde, läuft.
+      Das OG-Video wird auf die Zeit des EG-Videos abgeglichen.
+   --------------------------------------------------------- */
+const eg = document.getElementById('video-eg');
+const og = document.getElementById('video-og');
+
+setInterval(() => {
+  document.querySelectorAll('.video-rahmen:not(.pausiert) video').forEach(v => {
+    if (v.paused && v.readyState >= 2) v.play();
+  });
+  if (!eg.paused && og.readyState >= 2 && Math.abs(og.currentTime - eg.currentTime) > 0.15) {
+    og.currentTime = eg.currentTime;   // mehr als 0.15 s auseinander → angleichen
+  }
+}, 500);
+</script>
+
+</body>
+</html>
