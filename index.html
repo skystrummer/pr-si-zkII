@@ -144,13 +144,15 @@ body {
   width: 100%;
 }
 
-/* nur "heating overshoot": Ausschnitt, damit der schwarze Rand des Videos wegfällt */
+/* AUSSCHNITT: zeigt nur einen Teil des Videos (schneidet Ränder ab)
+   Rahmen:  --h  = sichtbare Höhe
+   Video:   --vx / --vy = Verschiebung des Videos im Rahmen, --vb = Videobreite */
 .ausschnitt { height: calc(var(--h) * var(--u)); }
 .ausschnitt video {
   position: absolute;
-  left:  calc(-82 * var(--u));
-  top:   calc(-82 * var(--u));
-  width: calc(1018 * var(--u));
+  left:  calc(var(--vx) * var(--u));
+  top:   calc(var(--vy) * var(--u));
+  width: calc(var(--vb) * var(--u));
 }
 
 /* Regler: dezent grau und halbtransparent */
@@ -166,7 +168,7 @@ body {
   opacity: 0;                         /* unsichtbar ... */
   transition: opacity 0.3s;
 }
-.video-rahmen:hover .regler { opacity: 0.5; }   /* ... ausser die Maus ist drüber */
+.video-rahmen.maus-aktiv .regler { opacity: 0.5; }   /* ... ausser die Maus bewegt sich drüber */
 .regler:hover { opacity: 0.8 !important; }
 
 .regler::-webkit-slider-runnable-track { height: 2px; background: #999; }
@@ -303,14 +305,17 @@ body {
 
 
   <!-- ================= 6  SCHNITT ================= -->
-  <div class="text mitte" style="--x:363; --y:10015; --b:1200">
-    Der Wasserkreislauf bildet eine Symbiose zwischen Botanischem Garten und Schwimmbad. <span class="rot">abgebadetes Wasser</span> wird zur Bewässerung des<br>
-    Gartens geleitet, welcher das Wasser filtert und als <span class="blau">gereinigtes Wasser</span> wieder zurück in das Becken gespeist werden kann.
+  <div class="text mitte" style="--x:363; --y:10054; --b:1200">
+    Der Wasserkreislauf bildet eine Symbiose zwischen Botanischem Garten und Schwimmbad. <span class="rot">Abgebadetes Wasser</span> wird zur Bewässerung des<br>
+    Gartens verwendet, welcher es durch Trocken- und Nassfilter spült und schliesslich wird es als <span class="blau">gereinigtes Wasser</span> wieder zurück in das Becken gebracht.
   </div>
 
-  <img class="bild" src="links/Schnitt.png" style="--x:200; --y:10110; --b:1520">
-  <div class="text rot" style="--x:702; --y:10495; --b:200">Wasserkreislauf</div>
-  <div class="beschriftung" style="--x:1881; --y:10523">schnitt mit wasserkreislauf</div>
+  <!-- Schnitt-Video: Ausschnitt ohne Archicad-Vermerk oben und roten Strich unten -->
+  <div class="video-rahmen ausschnitt" style="--x:200; --y:10153; --b:1520; --h:294">
+    <video src="links/Wasserkreislauf_Schnitt.mp4" style="--vx:-12; --vy:-303; --vb:1589" loop muted playsinline></video>
+    <input class="regler" type="range" min="0" max="1000" value="0">
+  </div>
+  <div class="beschriftung" style="--x:1881; --y:10447">schnitt mit wasserkreislauf</div>
 
 
   <!-- ================= 7  GLASHAUS / HAUSTECHNIK ================= -->
@@ -335,7 +340,7 @@ body {
 
   <!-- Video in Dauerschleife -->
   <div class="video-rahmen ausschnitt" style="--x:205; --y:11189; --b:855; --h:408">
-    <video src="links/heating-overshoot.mp4" loop muted playsinline></video>
+    <video src="links/heating-overshoot.mp4" style="--vx:-82; --vy:-82; --vb:1018" loop muted playsinline></video>
     <input class="regler" type="range" min="0" max="1000" value="0">
   </div>
   <div class="beschriftung" style="--x:1881; --y:11556">schema auswirkungen glashaus</div>
@@ -510,6 +515,15 @@ document.querySelectorAll('.video-rahmen').forEach(rahmen => {
   const alleRahmen = () => gruppe
     ? [...document.querySelectorAll(`.video-rahmen[data-gruppe="${gruppe}"]`)]
     : [rahmen];
+
+  // Regler nur zeigen, solange sich die Maus über dem Video bewegt
+  let mausTimer;
+  rahmen.addEventListener('mousemove', () => {
+    rahmen.classList.add('maus-aktiv');
+    clearTimeout(mausTimer);
+    mausTimer = setTimeout(() => rahmen.classList.remove('maus-aktiv'), 1500);   // nach 1.5 s Stillstand weg
+  });
+  rahmen.addEventListener('mouseleave', () => rahmen.classList.remove('maus-aktiv'));
 
   // Klick aufs Video: anhalten oder weiterlaufen
   video.addEventListener('click', () => {
