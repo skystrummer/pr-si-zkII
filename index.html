@@ -24,6 +24,7 @@
 @font-face {
   font-family: "Helvetica Now";
   src: url("links/helvetica-now-display-x-black.otf");
+  font-display: block;   /* kurz warten, bis die Schrift geladen ist, statt Ersatzschrift zu zeigen */
 }
 
 :root {
@@ -93,6 +94,7 @@ body {
    Bleiben beim Zoomen am Rand und gleich gross; --y = Unterkante (bündig mit dem Bild) */
 .beschriftung {
   position: absolute;
+  z-index: 3;                       /* immer über Bildern und Videos */
   left: calc(1881 * var(--basis));
   top:  calc(var(--y) * var(--u));
   transform: translateY(-100%) rotate(180deg);
@@ -102,19 +104,32 @@ body {
   line-height: calc(24 * var(--basis));
 }
 
-/* Senkrechte Namensleiste links – läuft mit (wird unten per Script über die ganze Höhe wiederholt) */
+/* Nordpfeil neben den Grundrissen – bleibt wie die Bildunterschriften am rechten Rand */
+.nordpfeil {
+  position: absolute;
+  z-index: 3;
+  left:  calc(var(--x) * var(--basis));
+  top:   calc(var(--y) * var(--u));
+  width: calc(17 * var(--basis));
+  height: calc(17 * var(--basis));
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.3;
+}
+
+/* Senkrechte Namensleiste links – läuft mit (wird unten per Script über die ganze Höhe wiederholt).
+   Jeder Name hat eine feste Position (--ny, wie im PDF) – unabhängig von der Textlänge. */
 .namen {
   position: absolute;
   z-index: 10;
-  top: calc(100 * var(--basis));
+  top: 0;
   left: calc(19 * var(--basis));
-  display: flex;
-  flex-direction: column;
-  gap: calc(120 * var(--basis));
   font-size: calc(16 * var(--basis));     /* bleibt beim Zoomen gleich gross */
   line-height: calc(24 * var(--basis));
 }
 .namen span {
+  position: absolute;
+  top: calc(var(--ny) * var(--basis));
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   white-space: nowrap;
@@ -284,6 +299,7 @@ body {
     <input class="regler" type="range" min="0" max="1000" value="0">
   </div>
   <div class="beschriftung" style="--x:1881; --y:8623">grundriss eg mit wegleitung</div>
+  <svg class="nordpfeil" style="--x:1885; --y:8379" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5"/><line x1="10" y1="10" x2="18.3" y2="11.9"/></svg>
 
   <div class="text mitte" style="--x:785; --y:8455; --b:400">
     Der Botanische Garten sowie das Bistro und die<br>
@@ -302,6 +318,7 @@ body {
     <input class="regler" type="range" min="0" max="1000" value="0">
   </div>
   <div class="beschriftung" style="--x:1881; --y:9798">grundriss og mit wegleitung</div>
+  <svg class="nordpfeil" style="--x:1885; --y:9553" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5"/><line x1="10" y1="10" x2="18.3" y2="11.9"/></svg>
 
 
   <!-- ================= 6  SCHNITT ================= -->
@@ -368,12 +385,20 @@ body {
 /* ---------------------------------------------------------
    0) NAMENSLEISTE: Namen über die ganze Seite wiederholen
    --------------------------------------------------------- */
-const namen = ['ndey iris sillah', 'lukas melchior zimmer', 'julia eberwein', 'akt II', 'hs 26'];
+// Name und Abstand von oben (Design-Pixel, wie im PDF); alle 1078 px wiederholt sich die Leiste
+const namen = [
+  ['ndey iris sillah',       100],
+  ['lukas melchior zimmer',  331],
+  ['julia eberwein',         626],
+  ['akt II',                 856],
+  ['hs 26',                 1015],
+];
 const leiste = document.getElementById('namen');
 for (let i = 0; i < 40; i++) {          // oft genug wiederholen (überzähliges wird abgeschnitten)
-  namen.forEach(n => {
+  namen.forEach(([text, y]) => {
     const span = document.createElement('span');
-    span.textContent = n;
+    span.textContent = text;
+    span.style.setProperty('--ny', i * 1078 + y);
     leiste.appendChild(span);
   });
 }
